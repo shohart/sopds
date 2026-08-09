@@ -1,0 +1,62 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sopds
+      POSTGRES_PASSWORD: sopds
+      POSTGRES_DB: sopds
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sopds -d sopds"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  web:
+    build: .
+    container_name: sopds-web
+    ports:
+      - "8080:8080"
+    environment:
+      DB_NAME: sopds
+      DB_USER: sopds
+      DB_PASS: sopds
+      DB_HOST: db
+      DB_PORT: "5432"
+      TIME_ZONE: Europe/Moscow
+      DEBUG: "False"
+      SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-string}
+      ADMIN_USER: ${ADMIN_USER:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin123}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+    volumes:
+      - books:/sopds/books
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  telebot:
+    build: .
+    container_name: sopds-telebot
+    command: ["python", "manage.py", "sopds_telebot", "start"]
+    environment:
+      DB_NAME: sopds
+      DB_USER: sopds
+      DB_PASS: sopds
+      DB_HOST: db
+      DB_PORT: "5432"
+      TIME_ZONE: Europe/Moscow
+      DEBUG: "False"
+      SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-string}
+    volumes:
+      - books:/sopds/books
+    depends_on:
+      - web
+    restart: on-failure
+
+volumes:
+  pgdata:
+  books:

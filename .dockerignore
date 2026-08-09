@@ -1,0 +1,12 @@
+.venv
+__pycache__
+*.pyc
+*.pyo
+.git
+staticfiles
+opds_catalog/tmp
+opds_catalog/log
+*.log
+sopds_screenshot.png
+README.md
+raspberry.txt
