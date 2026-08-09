@@ -60,6 +60,78 @@
 #### Версия 0.47-devel
 
 
+#### 0. Установка через Docker (рекомендуемый способ)
+
+Сборка актуализирована под **Python 3.12** и **Django 5.2** (LTS). Весь проект
+поднимается через `docker compose` — это самый простой и надёжный способ:
+
+```
+# 1. Клонируем репозиторий
+git clone https://github.com/shohart/sopds.git
+cd sopds
+
+# 2. Запускаем стек (PostgreSQL + web)
+docker compose up -d --build
+
+# 3. Web-интерфейс
+#    http://localhost:8080/web/       (админка: /admin/, пароль из ADMIN_PASSWORD)
+#    OPDS-каталог:  http://localhost:8080/opds/  (Basic Auth: admin / ADMIN_PASSWORD)
+```
+
+По умолчанию создаётся администратор `admin` / `admin123` (переопределяется
+переменными `ADMIN_USER`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`). Обязательно поменяйте
+`SECRET_KEY` на длинную случайную строку перед публикацией.
+
+Переменные окружения (задаются в `docker-compose.yml` или через `.env`):
+
+| Переменная     | Назначение                                                      | По умолчанию     |
+|----------------|-----------------------------------------------------------------|------------------|
+| `DB_NAME`      | Имя БД PostgreSQL                                               | `sopds`          |
+| `DB_USER`      | Пользователь БД                                                 | `sopds`          |
+| `DB_PASS`      | Пароль БД                                                       | `sopds`          |
+| `DB_HOST`      | Хост БД (имя сервиса в compose)                                 | `db`             |
+| `DB_PORT`      | Порт БД                                                         | `5432`           |
+| `TIME_ZONE`    | Часовой пояс сервера                                            | `Europe/Moscow`  |
+| `DEBUG`        | Режим отладки Django (`true`/`false`)                           | `false`          |
+| `SECRET_KEY`   | Секретный ключ Django                                           | задаётся в compose |
+| `ADMIN_USER`   | Логин суперпользователя (создаётся при старте)                  | `admin`          |
+| `ADMIN_PASSWORD` | Пароль суперпользователя                                      | `admin123`       |
+| `ADMIN_EMAIL`  | E-mail суперпользователя                                        | пусто            |
+
+Библиотека книг монтируется в именованный том `books` (внутри контейнера —
+`/sopds/books`). Положение корня библиотеки и прочие параметры каталогизатора
+настраиваются в Web-интерфейсе (раздел настроек SimpleOPDS) либо командой:
+
+```
+docker compose exec web python manage.py sopds_util setconf SOPDS_ROOT_LIB "/sopds/books"
+```
+
+Сканирование библиотеки запускается автоматически по расписанию (по умолчанию
+03:00 10-го числа каждого месяца) либо вручную через админку (опция
+`SOPDS_SCAN_START_DIRECTLY`).
+
+**Telegram-бот.** Сервис `telebot` в `docker-compose.yml` выключен по умолчанию.
+Чтобы включить, задайте токен и перезапустите:
+
+```
+docker compose exec web python manage.py sopds_util setconf SOPDS_TELEBOT_API_TOKEN "123456:XXXX"
+docker compose up -d telebot
+```
+
+Полезные команды:
+
+```
+docker compose logs -f web       # логи web-сервера
+docker compose exec web python manage.py migrate   # миграции (выполняются автоматически)
+docker compose down              # остановить стек
+docker compose down -v          # остановить и удалить тома (БД и библиотеку!)
+```
+
+Примечание: старый конфиг `requirements.txt` рассчитан на Django 1.10 / Python 3.4.
+Для локальной установки без Docker используйте Python 3.12 и актуальные зависимости
+из `requirements.txt`.
+
+
 #### 1. Простая установка SimpleOPDS (используем простую БД sqlite3)
 
 1.1 Установка проекта  
