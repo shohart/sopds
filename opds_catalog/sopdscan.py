@@ -11,7 +11,7 @@ from book_tools.format import create_bookfile
 from book_tools.format.util import strip_symbols
 
 from django.db import transaction
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 
 from opds_catalog import fb2parse, opdsdb
 from opds_catalog import inpx_parser
@@ -255,7 +255,7 @@ class opdsScanner:
                             lang = self.fullang.get(lang.upper(),lang)
                         title = book_data.title.strip(strip_symbols) if book_data.title else n
                         annotation = book_data.description if book_data.description else ''
-                        annotation = annotation.strip(' \'\&\n-.#\\\`') if isinstance(annotation, str) else annotation.decode('utf8').strip(' \'\&\n-.#\\\`')
+                        annotation = annotation.strip(" \'&\n-.#\\`") if isinstance(annotation, str) else annotation.decode('utf8').strip(" \'&\n-.#\\`")
                         docdate = book_data.docdate if book_data.docdate else ''
 
                         book=opdsdb.addbook(name,rel_path,cat,e[1:],title,annotation,docdate,lang,file_size,archive)

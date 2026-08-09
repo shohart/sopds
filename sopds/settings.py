@@ -14,27 +14,40 @@ import os
 import sys
 from collections import OrderedDict
 
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+def _env_bool(name, default=False):
+    return str(os.environ.get(name, default)).strip().lower() in (
+        '1', 'true', 'yes', 'on'
+    )
+
+def _env(name, default=None):
+    return os.environ.get(name, default)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/1.9/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-try:
+SECRET_KEY = _env('SECRET_KEY', None)
+if not SECRET_KEY:
     # open file with random secret key
-    with open("/sopds/secret.key","r") as f:
-        SECRET_KEY = f.read()
-except FileNotFoundError as e:
-    # use standard secret key
-    SECRET_KEY = 'm4l1c#nq6*zs!c3ri4dg4(54_7bvrl5uintni6p20tijlaxv!x'
+    try:
+        with open("/sopds/secret.key","r") as f:
+            SECRET_KEY = f.read()
+    except FileNotFoundError:
+        # use standard secret key
+        SECRET_KEY = 'm4l1c#nq6*zs!c3ri4dg4(54_7bvrl5uintni6p20tijlaxv!x'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = _env_bool('DEBUG', True)
 
 ALLOWED_HOSTS = ['*']
+
+# Default primary key field type
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 # Application definition
 INSTALLED_APPS = [
@@ -53,6 +66,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.cache.UpdateCacheMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -119,7 +133,7 @@ WSGI_APPLICATION = 'sopds.wsgi.application'
 
 DATABASES = {
     'default': {
-    'ENGINE': 'django.db.backends.postgresql_psycopg2',
+    'ENGINE': 'django.db.backends.postgresql',
     'NAME': os.environ["DB_NAME"],
     'USER': os.environ["DB_USER"],
     'PASSWORD': os.environ["DB_PASS"],
@@ -166,11 +180,20 @@ CACHE_MIDDLEWARE_KEY_PREFIX = "sopds"
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/1.9/howto/static-files/
 STATIC_URL = '/static/'
-#STATIC_ROOT = 'static'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # Что то картинки не отдаются. Вот это работает
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"),
 ]
+
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedStaticFilesStorage',
+    },
+}
 
 CONSTANCE_BACKEND = 'constance.backends.database.DatabaseBackend'
 

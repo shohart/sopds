@@ -6,7 +6,7 @@ from random import randint
 from django.shortcuts import render, redirect
 from django.template.context_processors import csrf
 from django.db.models import Count, Min
-from django.utils.translation import ugettext as _
+from django.utils.translation import gettext as _
 from django.contrib.auth import authenticate, login, logout, REDIRECT_FIELD_NAME
 from django.contrib.auth.decorators import user_passes_test
 from django.views.decorators.vary import vary_on_headers
@@ -37,7 +37,7 @@ def get_annotation(mybook):
     fo = z.open(mybook.filename)
     book_data = create_bookfile(fo, mybook.filename)
     annotation = book_data.description if book_data.description else ''
-    annotation = annotation.strip(' \'\&\n-.#\\\`') if isinstance(annotation, str) else annotation.decode('utf8').strip(' \'\&\n-.#\\\`')
+    annotation = annotation.strip(" \'&\n-.#\\`") if isinstance(annotation, str) else annotation.decode('utf8').strip(" \'&\n-.#\\`")
     return annotation
 
 
