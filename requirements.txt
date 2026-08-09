@@ -1,8 +1,11 @@
-Django>=1.10,<2.2; python_version >= '3.4'
-Pillow>=2.9.0
-apscheduler>=3.3.0
-#django-constance[database]>=2.1
-django-picklefield
-lxml
-python-telegram-bot==13.5
-tzlocal==2.1
+Django>=5.2,<6.0
+django-constance>=4.0.2
+django-picklefield>=3.2.0
+Pillow>=10.4.0
+APScheduler>=3.10.4
+python-telegram-bot>=21.6,<22.0
+lxml>=5.2.0
+tzlocal>=5.2
+psycopg[binary]>=3.2
+gunicorn>=22.0
+whitenoise>=6.7
