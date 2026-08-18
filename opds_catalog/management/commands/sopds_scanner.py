@@ -12,7 +12,6 @@ from django.conf import settings as main_settings
 
 from opds_catalog.models import Counter
 from opds_catalog.sopdscan import opdsScanner
-from opds_catalog.process_lock import LockBusy, NonBlockingFileLock
 #from opds_catalog.settings import SCANNER_LOG, SCAN_SHED_DAY, SCAN_SHED_DOW, SCAN_SHED_HOUR, SCAN_SHED_MIN, LOGLEVEL, SCANNER_PID
 from opds_catalog import settings 
 from constance import config
@@ -68,29 +67,19 @@ class Command(BaseCommand):
 
     def scan(self):
         if self.scan_is_active:
-            self.stdout.write('Scan process already active. Skip current job.')
+            self.stdout.write('Scan process already active. Skip currend job.')
             return
-
-        scan_lock = str(config.SOPDS_SCANNER_LOCK or '').strip()
-        if not scan_lock:
-            scan_lock = os.path.join(
-                config.SOPDS_ROOT_LIB, '.sopds-control', 'scanner.lock'
-            )
-        try:
-            with NonBlockingFileLock(scan_lock, label="SOPDS scanner"):
-                self.scan_is_active = True
-                try:
-                    if connection.connection and not connection.is_usable():
-                        del(connections._connections.default)
-
-                    scanner = opdsScanner(self.logger)
-                    with transaction.atomic():
-                        scanner.scan_all()
-                    Counter.objects.update_known_counters()
-                finally:
-                    self.scan_is_active = False
-        except LockBusy as exc:
-            self.stdout.write('Scan skipped: %s' % exc)
+        
+        self.scan_is_active = True
+        
+        if connection.connection and not connection.is_usable():
+            del(connections._connections.default)
+                
+        scanner=opdsScanner(self.logger)
+        with transaction.atomic():
+            scanner.scan_all()
+        Counter.objects.update_known_counters()  
+        self.scan_is_active = False
         
     def update_shedule(self):
         self.SCAN_SHED_DAY = config.SOPDS_SCAN_SHED_DAY

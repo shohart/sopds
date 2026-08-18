@@ -38,8 +38,6 @@ from telegram.ext import (
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import InvalidToken, BadRequest
 
-from opds_catalog.network import build_telegram_request
-
 query_delimiter = "####"
 
 # Emoji vocabulary for friendlier, more expressive output.
@@ -433,17 +431,8 @@ class Command(BaseCommand):
             return None
 
         try:
-            proxy_url = str(config.SOPDS_TELEBOT_PROXY_URL or "").strip()
-            request = build_telegram_request(proxy_url)
-            updates_request = build_telegram_request(proxy_url)
             writepid(self.pidfile)
-            application = (
-                Application.builder()
-                .token(config.SOPDS_TELEBOT_API_TOKEN)
-                .request(request)
-                .get_updates_request(updates_request)
-                .build()
-            )
+            application = Application.builder().token(config.SOPDS_TELEBOT_API_TOKEN).build()
 
             start_command_handler = CommandHandler('start', self.startCommand)
             download_handler = MessageHandler(filters.Regex('^/download\\d+$'), self.downloadBooks)
@@ -459,9 +448,6 @@ class Command(BaseCommand):
             self.stdout.write("Quit the sopds_telebot with %s.\n" % quit_command)
 
             application.run_polling(drop_pending_updates=True)
-        except ValueError as exc:
-            self.stdout.write(f'Invalid Telegram proxy configuration: {exc}')
-            self.logger.error('Invalid Telegram proxy configuration: %s', exc)
         except InvalidToken:
             self.stdout.write('Invalid telegram token.\nSet correct token for telegram API by command:\n python3 manage.py sopds_util setconf SOPDS_TELEBOT_API_TOKEN "<token>"')
             self.logger.error('Invalid telegram token.')

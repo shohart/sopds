@@ -150,40 +150,6 @@ docker compose exec web python manage.py sopds_util setconf SOPDS_TELEBOT_AUTH T
 docker compose up -d telebot
 ```
 
-Для Telegram можно задать нативный HTTP(S)/SOCKS-прокси; пустое значение означает
-прямое соединение. Прокси применяется и к обычным Bot API-запросам, и к long polling:
-
-```bash
-docker compose exec web python manage.py sopds_util setconf SOPDS_TELEBOT_PROXY_URL "socks5h://127.0.0.1:1080"
-```
-
-### Автопополнение из ежедневных архивов Флибусты
-
-В форк встроен безопасный updater: он получает список ежедневных FB2-архивов,
-скачивает только отсутствующие файлы во временный staging, проверяет структуру и
-CRC каждого ZIP и только после успешной проверки **всего набора** атомарно
-публикует архивы в библиотеку. Сканирование запускается только если появились
-новые файлы.
-
-По умолчанию updater выключен. Настройка и пробный запуск:
-
-```bash
-# источник и каталог назначения (пустой destination = SOPDS_ROOT_LIB)
-docker compose exec web python manage.py sopds_util setconf SOPDS_FLIBUSTA_SOURCE_URL "http://flibusta.is/daily/"
-docker compose exec web python manage.py sopds_util setconf SOPDS_FLIBUSTA_PROXY_URL "http://proxy:3128"
-
-# безопасно показать недостающие архивы без скачивания и сканирования
-docker compose exec web python manage.py sopds_flibusta_update once --dry-run --force
-
-# включить ежедневное обновление в 02:00 и запустить планировщик
-docker compose exec web python manage.py sopds_util setconf SOPDS_FLIBUSTA_UPDATE_ENABLED True
-docker compose up -d updater
-```
-
-Поддерживаются прокси `http://`, `https://`, `socks5://`, `socks5h://`.
-В production сначала выполните `--dry-run`, затем `once --force`; старый cron
-отключайте только после успешной проверки нового updater.
-
 ### Полезные команды
 
 ```bash
@@ -241,11 +207,6 @@ python3 manage.py sopds_util setconf SOPDS_ROOT_LIB "/path/to/books"   # зад�
 
 python3 manage.py sopds_scanner scan [--verbose] [--daemon]     # разовое сканирование
 python3 manage.py sopds_scanner start [--verbose] [--daemon]    # сканирование по расписанию
-
-python3 manage.py sopds_flibusta_update once --dry-run --force # проверить обновления без записи
-python3 manage.py sopds_flibusta_update once --force           # загрузить сейчас
-python3 manage.py sopds_flibusta_update start                  # планировщик обновлений
-python3 manage.py sopds_flibusta_update status                 # состояние планировщика
 ```
 
 ---
@@ -282,18 +243,6 @@ python3 manage.py sopds_flibusta_update status                 # состоян�
 | `SOPDS_TELEBOT_API_TOKEN` | Токен Telegram-бота | `` |
 | `SOPDS_TELEBOT_AUTH` | Доступ к боту только пользователям БД | `True` |
 | `SOPDS_TELEBOT_MAXITEMS` | Элементов на одно сообщение бота | `10` |
-| `SOPDS_TELEBOT_PROXY_URL` | Нативный HTTP(S)/SOCKS5(SOCKS5h)-прокси Telegram | `` |
-| `SOPDS_FLIBUSTA_UPDATE_ENABLED` | Включить плановые обновления Флибусты | `False` |
-| `SOPDS_FLIBUSTA_SOURCE_URL` | Страница ежедневных архивов | `http://flibusta.is/daily/` |
-| `SOPDS_FLIBUSTA_DESTINATION` | Каталог архивов; пусто = `SOPDS_ROOT_LIB` | `` |
-| `SOPDS_FLIBUSTA_FILE_PATTERN` | Glob скачиваемых файлов | `*.fb2.*.zip` |
-| `SOPDS_FLIBUSTA_PROXY_URL` | Нативный HTTP(S)/SOCKS5(SOCKS5h)-прокси загрузчика | `` |
-| `SOPDS_FLIBUSTA_MAX_FILE_SIZE_MB` | Максимальный размер одного архива | `2048` |
-| `SOPDS_FLIBUSTA_MAX_TOTAL_SIZE_MB` | Максимальный объём одного обновления | `10240` |
-| `SOPDS_FLIBUSTA_MIN_FREE_SPACE_MB` | Минимальный свободный запас на диске | `2048` |
-| `SOPDS_FLIBUSTA_VALIDATE_ZIP` | Проверять ZIP и CRC до публикации | `True` |
-| `SOPDS_FLIBUSTA_SCAN_AFTER_UPDATE` | Сканировать только после новых архивов | `True` |
-| `SOPDS_FLIBUSTA_SHED_MIN/HOUR/DAY/DOW` | Расписание updater | `0` / `02` / `*` / `*` |
 
 ---
 
