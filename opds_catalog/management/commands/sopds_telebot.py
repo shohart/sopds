@@ -3,6 +3,7 @@ import signal
 import sys
 import logging
 import re
+import html
 
 from collections import OrderedDict
 from datetime import datetime, timedelta
@@ -38,6 +39,52 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.error import InvalidToken, BadRequest
 
 query_delimiter = "####"
+
+# Emoji vocabulary for friendlier, more expressive output.
+EMOJI = {
+    "books": "📚",
+    "book": "📖",
+    "author": "✍️",
+    "search": "🔎",
+    "download": "⬇️",
+    "zip": "🗜️",
+    "epub": "📱",
+    "mobi": "📚",
+    "ok": "✅",
+    "warn": "⚠️",
+    "info": "ℹ️",
+    "error": "❌",
+    "sparkles": "✨",
+    "annotation": "📝",
+    "year": "🗓️",
+    "size": "📏",
+    "lang": "🌐",
+    "format": "📄",
+    "hello": "👋",
+    "hint": "💡",
+    "first": "⏮",
+    "prev": "◀️",
+    "next": "▶️",
+    "last": "⏭",
+}
+
+
+def esc(value):
+    """Escape a dynamic value for safe use inside HTML-formatted messages."""
+    return html.escape(str(value), quote=False)
+
+
+def human_size(num):
+    """Format a byte count into a compact, human-readable string."""
+    try:
+        num = int(num)
+    except (TypeError, ValueError):
+        return str(num)
+    if num >= 1024 * 1024:
+        return "%.1f МБ" % (num / (1024 * 1024))
+    if num >= 1024:
+        return "%.0f КБ" % (num / 1024)
+    return "%d Б" % num
 
 
 def cmdtrans(func):
@@ -136,8 +183,13 @@ class Command(BaseCommand):
     @cmdtrans
     @check_auth_decorator
     async def startCommand(self, update: Update, context):
-        await context.bot.send_message(chat_id=update.message.chat_id, text=_("%(subtitle)s\nHello %(username)s! To search for a book, enter part of her title or author:") %
-                                       {'subtitle': settings.SUBTITLE, 'username': update.message.from_user.username})
+        username = update.message.from_user.username or ""
+        greeting = _('%(subtitle)s\nHello %(username)s! To search for a book, enter part of her title or author:') % {'subtitle': esc(settings.SUBTITLE), 'username': esc(username)}
+        text = (
+            f"{EMOJI['books']} {greeting}\n\n"
+            f"<blockquote>{EMOJI['hint']} Минимум 3 символа — найду книги и предложу форматы для скачивания.</blockquote>"
+        )
+        await context.bot.send_message(chat_id=update.message.chat_id, text=text, parse_mode='HTML')
         self.logger.info("Start talking with user: %s" % update.message.from_user)
         return None
 
@@ -178,15 +230,26 @@ class Command(BaseCommand):
         response = ''
         for b in books[start:finish + 1]:
             doubles = _("(doubles:%s) ") % b['doubles'] if summary_doubles and b['doubles'] else ''
-            response += '<b>%(title)s</b>\n%(author)s\n%(dbl)s/download%(link)s\n\n' % {'title': b['title'], 'author': b['authors_set'], 'link': b['id'], 'dbl': doubles}
+            title = esc(b['title'])
+            author = esc(b['authors_set'] or '—')
+            entry = (
+                f"{EMOJI['book']} <b>{title}</b>\n"
+                f"{EMOJI['author']} {author}\n"
+                f"{EMOJI['download']} <code>/download{b['id']}</code>"
+            )
+            if doubles:
+                entry += f"  {EMOJI['info']} {doubles.strip()}"
+            response += entry + "\n\n"
 
         # fix for rare empty response
         if response:
-            buttons = [InlineKeyboardButton('1 <<', callback_data='%s%s%s' % (query, query_delimiter, 1)),
-                       InlineKeyboardButton('%s <' % op.previous_page_number, callback_data='%s%s%s' % (query, query_delimiter, op.previous_page_number)),
-                       InlineKeyboardButton('[ %s ]' % op.number, callback_data='%s%s%s' % (query, query_delimiter, 'current')),
-                       InlineKeyboardButton('> %s' % op.next_page_number, callback_data='%s%s%s' % (query, query_delimiter, op.next_page_number)),
-                       InlineKeyboardButton('>> %s' % op.num_pages, callback_data='%s%s%s' % (query, query_delimiter, op.num_pages))]
+            buttons = [
+                InlineKeyboardButton(f"{EMOJI['first']} 1", callback_data='%s%s%s' % (query, query_delimiter, 1)),
+                InlineKeyboardButton(f"{EMOJI['prev']} {op.previous_page_number}", callback_data='%s%s%s' % (query, query_delimiter, op.previous_page_number)),
+                InlineKeyboardButton(f"{op.number} / {op.num_pages}", callback_data='%s%s%s' % (query, query_delimiter, 'current')),
+                InlineKeyboardButton(f"{op.next_page_number} {EMOJI['next']}", callback_data='%s%s%s' % (query, query_delimiter, op.next_page_number)),
+                InlineKeyboardButton(f"{op.num_pages} {EMOJI['last']}", callback_data='%s%s%s' % (query, query_delimiter, op.num_pages)),
+            ]
             markup = InlineKeyboardMarkup([buttons]) if op.num_pages > 1 else None
             return {'message': response, 'buttons': markup}
         else:
@@ -199,11 +262,11 @@ class Command(BaseCommand):
         self.logger.info("Got message from user %s: %s" % (update.message.from_user.username, query))
 
         if len(query) < 3:
-            response = _("Too short for search, please try again.")
+            response = f"{EMOJI['warn']} {_('Too short for search, please try again.')}"
         else:
-            response = _("I'm searching for the book: %s") % (query)
+            response = f"{EMOJI['search']} " + _("I'm searching for the book: %s") % esc(query)
 
-        await context.bot.send_message(chat_id=update.message.chat_id, text=response)
+        await context.bot.send_message(chat_id=update.message.chat_id, text=response, parse_mode='HTML')
         self.logger.info("Send message to user %s: %s" % (update.message.from_user.username, response))
 
         if len(query) < 3:
@@ -213,13 +276,13 @@ class Command(BaseCommand):
         books_count = len(books)
 
         if books_count == 0:
-            response = _("No results were found for your query, please try again.")
-            await context.bot.send_message(chat_id=update.message.chat_id, text=response)
+            response = f"{EMOJI['error']} {_('No results were found for your query, please try again.')}"
+            await context.bot.send_message(chat_id=update.message.chat_id, text=response, parse_mode='HTML')
             self.logger.info("Send message to user %s: %s" % (update.message.from_user.username, response))
             return
 
-        response = _("Found %s books.\nI create list, after a few seconds, select the file to download:") % books_count
-        await context.bot.send_message(chat_id=update.message.chat_id, text=response)
+        response = f"{EMOJI['ok']} " + _("Found %s books.\nI create list, after a few seconds, select the file to download:") % books_count
+        await context.bot.send_message(chat_id=update.message.chat_id, text=response, parse_mode='HTML')
         self.logger.info("Send message to user %s: %s" % (update.message.from_user.username, response))
 
         response = self.bookPager(books, 1, query)
@@ -262,21 +325,38 @@ class Command(BaseCommand):
                 book = None
 
         if book is None:
-            response = _("The book on the link you specified is not found, try to repeat the book search first.")
+            response = f"{EMOJI['error']} {_('The book on the link you specified is not found, try to repeat the book search first.')}"
             await context.bot.send_message(chat_id=update.message.chat_id, text=response, parse_mode='HTML')
             self.logger.info("Not find download links: %s" % response)
             return
 
         authors = ', '.join([a['full_name'] for a in book.authors.values()])
-        response = ('<b>%(title)s</b>\n%(author)s\n<b>' + _("Annotation:") + '</b>%(annotation)s\n') % {'title': book.title, 'author': authors, 'annotation': book.annotation[:3000]}
+        annotation = esc(strip_tags(book.annotation)[:3000])
 
-        buttons = [InlineKeyboardButton(book.format.upper(), callback_data='/getfileorig%s' % book.id)]
+        meta = (
+            "<pre>"
+            f"Год:    {esc(book.docdate or '—')}\n"
+            f"Язык:   {esc(book.lang or '—')}\n"
+            f"Размер: {human_size(book.filesize)}\n"
+            f"Формат: {esc(book.format.upper())}"
+            "</pre>"
+        )
+
+        response = (
+            f"{EMOJI['book']} <b>{esc(book.title)}</b>\n"
+            f"{EMOJI['author']} {esc(authors or '—')}\n\n"
+            f"{meta}"
+        )
+        if annotation:
+            response += f"\n{EMOJI['annotation']} <b>{_('Annotation:')}</b>\n<span class=\"tg-spoiler\">{annotation}</span>"
+
+        buttons = [InlineKeyboardButton(f"{EMOJI['format']} {book.format.upper()}", callback_data='/getfileorig%s' % book.id)]
         if book.format not in settings.NOZIP_FORMATS:
-            buttons += [InlineKeyboardButton(book.format.upper() + '.ZIP', callback_data='/getfilezip%s' % book.id)]
+            buttons += [InlineKeyboardButton(f"{EMOJI['zip']} {book.format.upper()}.ZIP", callback_data='/getfilezip%s' % book.id)]
         if (config.SOPDS_FB2TOEPUB != "") and (book.format == 'fb2'):
-            buttons += [InlineKeyboardButton('EPUB', callback_data='/getfileepub%s' % book.id)]
+            buttons += [InlineKeyboardButton(f"{EMOJI['epub']} EPUB", callback_data='/getfileepub%s' % book.id)]
         if (config.SOPDS_FB2TOMOBI != "") and (book.format == 'fb2'):
-            buttons += [InlineKeyboardButton('MOBI', callback_data='/getfilemobi%s' % book.id)]
+            buttons += [InlineKeyboardButton(f"{EMOJI['mobi']} MOBI", callback_data='/getfilemobi%s' % book.id)]
 
         markup = InlineKeyboardMarkup([buttons])
         await context.bot.send_message(chat_id=update.message.chat_id, text=response, parse_mode='HTML', reply_markup=markup)
@@ -301,7 +381,7 @@ class Command(BaseCommand):
                 book = None
 
         if book is None:
-            response = _("The book on the link you specified is not found, try to repeat the book search first.")
+            response = f"{EMOJI['error']} {_('The book on the link you specified is not found, try to repeat the book search first.')}"
             await context.bot.send_message(chat_id=callback_query.message.chat_id, text=response, parse_mode='HTML')
             self.logger.info("Not find download links: %s" % response)
             return
@@ -329,7 +409,7 @@ class Command(BaseCommand):
             document.close()
             self.logger.info("Send file: %s" % filename)
         else:
-            response = _("There was a technical error, please contact the Bot administrator.")
+            response = f"{EMOJI['error']} {_('There was a technical error, please contact the Bot administrator.')}"
             await context.bot.send_message(chat_id=callback_query.message.chat_id, text=response, parse_mode='HTML')
             self.logger.info("Book get error: %s" % response)
 
