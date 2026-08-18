@@ -57,6 +57,44 @@ services:
       - web
     restart: on-failure
 
+  scanner:
+    build: .
+    container_name: sopds-scanner
+    command: ["python", "manage.py", "sopds_scanner", "start"]
+    environment:
+      DB_NAME: sopds
+      DB_USER: sopds
+      DB_PASS: sopds
+      DB_HOST: db
+      DB_PORT: "5432"
+      TIME_ZONE: Europe/Moscow
+      DEBUG: "False"
+      SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-string}
+    volumes:
+      - books:/sopds/books
+    depends_on:
+      - web
+    restart: on-failure
+
+  updater:
+    build: .
+    container_name: sopds-updater
+    command: ["python", "manage.py", "sopds_flibusta_update", "start"]
+    environment:
+      DB_NAME: sopds
+      DB_USER: sopds
+      DB_PASS: sopds
+      DB_HOST: db
+      DB_PORT: "5432"
+      TIME_ZONE: Europe/Moscow
+      DEBUG: "False"
+      SECRET_KEY: ${SECRET_KEY:-change-me-to-a-long-random-string}
+    volumes:
+      - books:/sopds/books
+    depends_on:
+      - web
+    restart: on-failure
+
 volumes:
   pgdata:
   books:

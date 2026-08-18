@@ -104,6 +104,11 @@ class opdsScanner:
         opdsdb.avail_check_prepare()
             
         for full_path, dirs, files in os.walk(config.SOPDS_ROOT_LIB, followlinks=True):
+            # Internal staging/state directories are dot-prefixed and must never
+            # be indexed as library content. Pruning here also protects against
+            # orphaned staging after SIGKILL or a host crash.
+            dirs[:] = [directory for directory in dirs if not directory.startswith('.')]
+            files = [name for name in files if not name.startswith('.')]
             # Если разрешена обработка inpx, то при нахождении inpx обрабатываем его и прекращаем обработку текущего каталога
             if config.SOPDS_INPX_ENABLE:
                 inpx_files = [inpx for inpx in files if re.match('.*(.inpx|.INPX)$', inpx)]
